@@ -20,18 +20,5 @@ class ProductsControllerTest < ActionController::TestCase
     get :new
     assert_response :success
  end
-
- test "should create product" do
-    assert_difference('Product.count') do
-    post :create, params: { product: @update }
- end
-
-    assert_redirected_to product_path(assigns(:product))
- end
- # ...
- test "should update product" do
-    patch :update, params: { id: @product, product: @update }
-    assert_redirected_to product_path(assigns(:product))
- end
- # ...
+          
 end

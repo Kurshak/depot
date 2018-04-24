@@ -1,10 +1,12 @@
 class OrdersController < ApplicationController
-  skip_before_action :authorize, only: [:new, :create]
-  before_action :set_order, only: [:show, :edit, :update, :destroy]
   include CurrentCart
-   before_action :set_cart, only: [:new, :create]
-  
-   # GET /orders
+  before_action :set_cart, only: [:new, :create]
+  before_action :set_order, only: [:show, :edit, :update, :destroy]
+
+  # Разрешим неавторизоанному юзеру создавать заказы
+  skip_before_action :authorize, only: [:new, :create]
+
+  # GET /orders
   # GET /orders.json
   def index
     @orders = Order.all
@@ -16,15 +18,11 @@ class OrdersController < ApplicationController
   end
 
   # GET /orders/new
-  
-
   def new
-
     if @cart.line_items.empty?
-      redirect_to store_url, notice: "Your cart is empty"
+      redirect_to store_url, notice: I18n.t('activerecord.attributes.cart.messages.cart_is_empty')
       return
-      end
-
+    end
     @order = Order.new
   end
 
@@ -40,18 +38,17 @@ class OrdersController < ApplicationController
 
     respond_to do |format|
       if @order.save
-      Cart.destroy(session[:cart_id])
-      session[:cart_id] = nil
-      OrderNotifier.received(@order).deliver
-      format.html { redirect_to store_url, notice:
-      'Thank you for your order.' }
-      format.json { render action: 'show', status: :created,
-      location: @order }
+        Cart.destroy(session[:cart_id])
+        session[:cart_id] = nil
+
+        OrderNotifier.received(@order).deliver_later
+
+        format.html { redirect_to store_url, notice: I18n.t('.thank_you') }
+        format.json { render :show, status: :created, location: @order }
       else
         @cart = current_cart
-format.html { render action: 'new' }
-format.json { render json: @order.errors,
-status: :unprocessable_entity }
+        format.html { render :new }
+        format.json { render json: @order.errors, status: :unprocessable_entity }
       end
     end
   end
@@ -59,9 +56,17 @@ status: :unprocessable_entity }
   # PATCH/PUT /orders/1
   # PATCH/PUT /orders/1.json
   def update
+
+    if order_params[:ship_date].present? && @order.ship_date.blank?
+      OrderNotifier.shipped(@order).deliver
+    end
+
     respond_to do |format|
       if @order.update(order_params)
-        format.html { redirect_to @order, notice: 'Order was successfully updated.' }
+        format.html do
+          redirect_to @order,
+                      notice: I18n.t('activerecord.attributes.order.messages.updated')
+        end
         format.json { render :show, status: :ok, location: @order }
       else
         format.html { render :edit }
@@ -75,7 +80,7 @@ status: :unprocessable_entity }
   def destroy
     @order.destroy
     respond_to do |format|
-      format.html { redirect_to orders_url, notice: 'Order was successfully destroyed.' }
+      format.html { redirect_to orders_url, notice: I18n.t('activerecord.attributes.order.messages.destroyed') }
       format.json { head :no_content }
     end
   end
@@ -90,4 +95,7 @@ status: :unprocessable_entity }
     def order_params
       params.require(:order).permit(:name, :address, :email, :pay_type)
     end
+end
+def order_params
+  params.require(:order).permit(:name, :address, :email, )
 end
